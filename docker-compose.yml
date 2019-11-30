@@ -1,0 +1,53 @@
+version: '3.7'
+
+services:
+
+  nginx:
+    image: nginx:alpine
+    restart: always
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx:/etc/nginx/conf.d/
+      - ./src/static:/service/src/static
+    depends_on:
+      - web
+    networks:
+      - app-network
+
+  pg:
+    image: postgres:alpine
+    restart: always
+    env_file:
+      - ./postgres.env
+    volumes:
+      - ./sql/init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - app-network
+
+  web:
+    build:
+      context: .
+    restart: always
+    command: "gunicorn accounts.wsgi:application --workers=3 --bind 0.0.0.0:8888"
+    expose:
+      - 8888
+    env_file:
+      - ./app.env
+      - ./postgres.env
+    volumes:
+      - .:/service
+    depends_on:
+      - pg
+    networks:
+      - app-network
+
+    working_dir: /service/src
+    stdin_open: true
+    tty: true
+
+
+networks:
+  app-network:
+    name: app-network
+    driver: bridge
